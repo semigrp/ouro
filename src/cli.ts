@@ -1,6 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { basename, resolve } from "node:path";
-import { BouroCliGateway, StaticBouroGateway, spawnJson } from "./adapters/bouro.js";
+import { NeguraCliGateway, StaticNeguraGateway, spawnJson } from "./adapters/negura.js";
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { auditRunArtifacts } from "./artifacts.js";
@@ -26,8 +26,8 @@ export async function runCli(argv: string[], io: CliIo): Promise<void> {
   if (command === "events" && argv[1] === "export") {
     return eventsExport(parseArgs(argv.slice(2)), io);
   }
-  if (command === "bouro" && argv[1] === "flush") {
-    return bouroFlush(parseArgs(argv.slice(2)), io);
+  if (command === "negura" && argv[1] === "flush") {
+    return neguraFlush(parseArgs(argv.slice(2)), io);
   }
   const options = parseArgs(argv.slice(1));
   switch (command) {
@@ -55,7 +55,7 @@ export async function runCli(argv: string[], io: CliIo): Promise<void> {
 /**
  * prepare: go from a plan step to a runnable, replayable request in one call.
  * Knowledge stays where it belongs — the chain (claim → question → hypothesis →
- * experiment → procedure) is find-or-created in Bouro via its CLI (`bouro find`
+ * experiment → procedure) is find-or-created in Negura via its CLI (`negura find`
  * makes this idempotent; Ouro never reads another system's store file). The
  * procedure artifact is pinned from the workspace (HEAD commit + sha256), and
  * the generated ouro.run-request/v1 is saved locally under .ouro/requests/ so
@@ -69,24 +69,24 @@ async function prepare(options: Options, io: CliIo): Promise<void> {
   const ownerRepo = work.match(/^([^#]+)#(.+)$/)?.[1];
   if (!ownerRepo) throw new Error('prepare: --work must look like "owner/repo#123"');
 
-  const bin = optionalString(options["bouro-bin"]) ?? process.env.BOURO_BIN ?? "bouro";
-  const vault = optionalString(options["bouro-vault"]) ?? process.env.BOURO_VAULT;
-  const bouro = async (args: string[]): Promise<Record<string, unknown>> => {
+  const bin = optionalString(options["negura-bin"]) ?? process.env.NEGURA_BIN ?? "negura";
+  const vault = optionalString(options["negura-vault"]) ?? process.env.NEGURA_VAULT;
+  const negura = async (args: string[]): Promise<Record<string, unknown>> => {
     const withVault = vault ? [...args, "--vault", vault] : args;
     const isJs = bin.endsWith(".js") || bin.endsWith(".mjs");
     const result = await spawnJson(isJs ? process.execPath : bin, isJs ? [bin, ...withVault] : withVault);
     if (result.exitCode !== 0) {
-      throw new Error(`Bouro CLI failed with exit ${result.exitCode}: ${result.stderr.trim()}`);
+      throw new Error(`Negura CLI failed with exit ${result.exitCode}: ${result.stderr.trim()}`);
     }
     return JSON.parse(result.stdout) as Record<string, unknown>;
   };
   const findOrCreate = async (kind: string, createArgs: string[]): Promise<string> => {
-    const found = await bouro(["find", "--kind", kind, "--title", title]);
+    const found = await negura(["find", "--kind", kind, "--title", title]);
     if (found.found === true) {
       const revision = found.revision as { id: string };
       return revision.id;
     }
-    const created = await bouro(createArgs);
+    const created = await negura(createArgs);
     const result = created.result as { id: string };
     return result.id;
   };
@@ -135,16 +135,16 @@ async function prepare(options: Options, io: CliIo): Promise<void> {
       source: { system: "github", type: "issue", id: work, version: `requested:${commit}` },
       title,
     },
-    experiment: { system: "bouro", type: "experiment", id: experiment, version: "1" },
+    experiment: { system: "negura", type: "experiment", id: experiment, version: "1" },
     contextQuery: {
-      schema: "bouro.context-query/v1",
-      roots: [{ system: "bouro", type: "experiment", id: experiment, version: "1" }],
+      schema: "negura.context-query/v1",
+      roots: [{ system: "negura", type: "experiment", id: experiment, version: "1" }],
       purpose: "run the declared gates against the workspace HEAD",
       tokenBudget: 4000,
       allowedSensitivities: ["public", "internal"],
     },
     procedure: {
-      definition: { system: "bouro", type: "procedure", id: procedureId, version: "1" },
+      definition: { system: "negura", type: "procedure", id: procedureId, version: "1" },
       artifact: {
         system: "github",
         type: "file",
@@ -239,7 +239,7 @@ async function show(options: Options, io: CliIo): Promise<void> {
     events: store.events.filter(
       (event) => event.subject.id === id || event.refs.some((reference) => reference.id === id),
     ),
-    outbox: Object.values(store.bouroOutbox).filter(
+    outbox: Object.values(store.neguraOutbox).filter(
       (entry) => entry.command.evidence.generatedBy.id === id,
     ),
   });
@@ -254,8 +254,8 @@ async function run(options: Options, io: CliIo): Promise<void> {
   if (result.status !== "succeeded") process.exitCode = 1;
 }
 
-async function bouroFlush(options: Options, io: CliIo): Promise<void> {
-  const result = await engineFor(options, io).flushBouroOutbox();
+async function neguraFlush(options: Options, io: CliIo): Promise<void> {
+  const result = await engineFor(options, io).flushNeguraOutbox();
   writeJson(io.stdout, { ok: result.pending === 0, ...result });
   if (result.pending > 0) process.exitCode = 1;
 }
@@ -291,17 +291,17 @@ async function demo(options: Options, io: CliIo): Promise<void> {
   ].join("\n");
   await writeFile(procedure, source, "utf8");
   const query: ContextQueryV1 = {
-    schema: "bouro.context-query/v1",
-    roots: [{ system: "bouro", type: "experiment", id: "EXP-DEMO", version: "1" }],
+    schema: "negura.context-query/v1",
+    roots: [{ system: "negura", type: "experiment", id: "EXP-DEMO", version: "1" }],
     purpose: "execute the Ouro golden path",
     tokenBudget: 2_000,
     maxResources: 10,
     allowedSensitivities: ["public", "internal"],
   };
   const ontology = {
-    system: "bouro",
+    system: "negura",
     type: "ontology_release",
-    id: "bouro-core",
+    id: "negura-core",
     version: "1.0.0",
     digest: digestJson("ouro-demo-ontology"),
   } as const;
@@ -317,17 +317,17 @@ async function demo(options: Options, io: CliIo): Promise<void> {
     }),
   };
   const bundle: ContextBundleV1 = {
-    schema: "bouro.context-bundle/v1",
+    schema: "negura.context-bundle/v1",
     id: `CTX-${digestJson(contextPayload).slice(7, 23).toUpperCase()}`,
     createdAt: new Date().toISOString(),
     ...contextPayload,
     digest: digestJson(contextPayload),
   };
-  const gateway = new StaticBouroGateway(bundle);
+  const gateway = new StaticNeguraGateway(bundle);
   const repository = repositoryFor(options, io);
   const engine = new OuroEngine({
     repository,
-    bouro: gateway,
+    negura: gateway,
     allowedPermissionTiers: ["inspect"],
   });
   const request: RunRequestV1 = {
@@ -339,7 +339,7 @@ async function demo(options: Options, io: CliIo): Promise<void> {
     experiment: query.roots[0]!,
     contextQuery: query,
     procedure: {
-      definition: { system: "bouro", type: "procedure", id: "PROC-DEMO", version: "1" },
+      definition: { system: "negura", type: "procedure", id: "PROC-DEMO", version: "1" },
       artifact: {
         system: "github",
         type: "file",
@@ -378,17 +378,17 @@ async function demo(options: Options, io: CliIo): Promise<void> {
 
 function engineFor(options: Options, io: CliIo): OuroEngine {
   const repository = repositoryFor(options, io);
-  const gateway = new BouroCliGateway({
-    bin: optionalString(options["bouro-bin"]) ?? process.env.BOURO_BIN ?? "bouro",
-    ...(optionalString(options["bouro-vault"])
-      ? { vault: resolve(io.cwd, optionalString(options["bouro-vault"])!) }
-      : process.env.BOURO_VAULT
-        ? { vault: process.env.BOURO_VAULT }
+  const gateway = new NeguraCliGateway({
+    bin: optionalString(options["negura-bin"]) ?? process.env.NEGURA_BIN ?? "negura",
+    ...(optionalString(options["negura-vault"])
+      ? { vault: resolve(io.cwd, optionalString(options["negura-vault"])!) }
+      : process.env.NEGURA_VAULT
+        ? { vault: process.env.NEGURA_VAULT }
         : {}),
   });
   return new OuroEngine({
     repository,
-    bouro: gateway,
+    negura: gateway,
     ...(optionalString(options["artifact-root"])
       ? { artifactRoot: resolve(io.cwd, optionalString(options["artifact-root"])!) }
       : {}),
@@ -434,9 +434,9 @@ function storeReport(store: Awaited<ReturnType<JsonStoreRepository["load"]>>): o
     gates: Object.keys(store.gates).length,
     events: store.events.length,
     eventChainHead: store.eventChainHead ?? null,
-    bouroOutbox: {
-      pending: Object.values(store.bouroOutbox).filter((entry) => entry.status === "pending").length,
-      delivered: Object.values(store.bouroOutbox).filter((entry) => entry.status === "delivered").length,
+    neguraOutbox: {
+      pending: Object.values(store.neguraOutbox).filter((entry) => entry.status === "pending").length,
+      delivered: Object.values(store.neguraOutbox).filter((entry) => entry.status === "delivered").length,
     },
   };
 }
@@ -493,21 +493,21 @@ function help(io: CliIo): void {
   init [--store <path>]
   doctor | status [--store <path>]
   run --spec <ouro.run-request/v1.json> [--allow-tier <tier>]
-      [--bouro-bin <path>] [--bouro-vault <path>] [--store <path>]
+      [--negura-bin <path>] [--negura-vault <path>] [--store <path>]
   show --run <RUN-id> [--store <path>]
   events export --target fukuro [--since <EVT-id>] [--run <RUN-id>] [--out <path>]
-  bouro flush [--bouro-bin <path>] [--bouro-vault <path>] [--store <path>]
+  negura flush [--negura-bin <path>] [--negura-vault <path>] [--store <path>]
   demo [--store <path>]
   prepare --work <owner/repo#n> --title <name> --workspace <dir> --commands <json>
       [--question <text>] [--closure-rule <text>] [--procedure-path <rel>]
       [--tier <tier>] [--timeout-ms <n>] [--out <path>]
-      (find-or-creates the Bouro chain, pins the procedure, saves a reusable
+      (find-or-creates the Negura chain, pins the procedure, saves a reusable
        run request under .ouro/requests/)
 
 Permission tiers:
   inspect (allowed by default), workspace-write, external-write
 
 Environment:
-  BOURO_BIN, BOURO_VAULT
+  NEGURA_BIN, NEGURA_VAULT
 `);
 }

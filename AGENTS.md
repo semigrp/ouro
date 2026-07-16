@@ -7,7 +7,7 @@ this repository — no private context is required to reach the operational leve
 
 Ouro is the local-first outbound execution engine of a three-tool loop: it turns one external Work
 item into a pinned, inspectable path `Work → Plan → Task → ContextBundle → ProcedureBinding →
-Run → Attempt → Gate → Result`. [Bouro](https://github.com/semigrp/bouro) owns knowledge meaning
+Run → Attempt → Gate → Result`. [Negura](https://github.com/semigrp/negura) owns knowledge meaning
 and Evidence; [Fukuro](https://github.com/semigrp/fukuro) owns telemetry and baselines. Ouro never
 writes another system's store — integrations are explicit CLI calls and deterministic NDJSON
 export. See README's system-boundary table.
@@ -20,9 +20,9 @@ pnpm install
 pnpm test                      # all tests must pass before you rely on the CLI
 npm link                       # puts `ouro` on PATH
 
-# receiver wiring (requires a Bouro checkout set up per its AGENTS.md)
-export BOURO_BIN="$(which bouro)"
-export BOURO_VAULT="$HOME/path/of/your/choice/store.json"   # add both to your shell profile
+# receiver wiring (requires a Negura checkout set up per its AGENTS.md)
+export NEGURA_BIN="$(which negura)"
+export NEGURA_VAULT="$HOME/path/of/your/choice/store.json"   # add both to your shell profile
 
 ouro demo                      # golden path against a static context; must end succeeded
 ouro doctor                    # verifies store structure, event chain, snapshots
@@ -50,7 +50,7 @@ quality gates as a pinned Run with Evidence delivery and Fukuro export.
    piped to `fukuro import` — never hand-write telemetry rows for something Ouro executed.
    Re-export is safe: `sourceEventId` makes imports idempotent.
 5. **Evidence goes through the outbox.** A completed Run stays complete when delivery fails;
-   `ouro bouro flush` replays with the same idempotency key. Never register Run evidence in Bouro
+   `ouro negura flush` replays with the same idempotency key. Never register Run evidence in Negura
    by hand.
 6. **Pin, don't improvise.** If the run request needs values you do not have (experiment id,
    procedure id, digests), create or look them up — never guess a version or digest.
@@ -70,9 +70,9 @@ ouro init | doctor | status [--store <path>]
 ouro run --spec <run-request.json> [--allow-tier workspace-write]
 ouro show --run RUN-n
 ouro prepare --work "owner/repo#123" --title "repo gates" --workspace /abs/target \
-  --commands '[["npx","tsc"],["npm","test"]]'   # find-or-create Bouro chain, save .ouro/requests/<slug>.json
+  --commands '[["npx","tsc"],["npm","test"]]'   # find-or-create Negura chain, save .ouro/requests/<slug>.json
 ouro events export --target fukuro [--since EVT-n] [--run RUN-n]
-ouro bouro flush
+ouro negura flush
 node examples/quality-gate/make-run-request.mjs --work "owner/repo#123" \
   --workspace /abs/target --commands '[["npx","tsc"],["npm","test"]]' \
   --experiment EXP-n --procedure PROC-n > run-request.json

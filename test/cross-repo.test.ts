@@ -6,25 +6,25 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { BouroCliGateway } from "../src/adapters/bouro.js";
+import { NeguraCliGateway } from "../src/adapters/negura.js";
 import { exportFukuroNdjson } from "../src/adapters/fukuro.js";
 import { OuroEngine } from "../src/engine.js";
 import { digestBytes, type RunRequestV1 } from "../src/schema.js";
 import { JsonStoreRepository, validateStore } from "../src/store.js";
 
-const bouroRoot = process.env.BOURO_ROOT;
+const neguraRoot = process.env.NEGURA_ROOT;
 
 test(
-  "real Bouro CLI completes Context query, Ouro Run, Evidence registration, and replay",
-  { skip: bouroRoot ? false : "Set BOURO_ROOT to run the cross-repository fixture" },
+  "real Negura CLI completes Context query, Ouro Run, Evidence registration, and replay",
+  { skip: neguraRoot ? false : "Set NEGURA_ROOT to run the cross-repository fixture" },
   async () => {
-    const directory = await mkdtemp(join(tmpdir(), "ouro-bouro-cross-repo-"));
+    const directory = await mkdtemp(join(tmpdir(), "ouro-negura-cross-repo-"));
     try {
-      const bouroBin = join(bouroRoot!, "dist", "bin", "bouro.js");
-      const bouroVault = join(directory, "bouro-store.json");
-      const demo = invokeBouro(bouroBin, ["demo", "--vault", bouroVault]);
+      const neguraBin = join(neguraRoot!, "dist", "bin", "negura.js");
+      const neguraVault = join(directory, "negura-store.json");
+      const demo = invokeNegura(neguraBin, ["demo", "--vault", neguraVault]);
       assert.equal(demo.status, 0, demo.stderr);
-      assertContractSnapshots(bouroRoot!);
+      assertContractSnapshots(neguraRoot!);
 
       const workspace = join(directory, "workspace");
       await mkdir(workspace, { recursive: true });
@@ -41,17 +41,17 @@ test(
           source: { system: "github", type: "issue", id: "semigrp/ouro#e2e", version: "1" },
           title: "Cross-repository verification",
         },
-        experiment: { system: "bouro", type: "experiment", id: "EXP-0001", version: "1" },
+        experiment: { system: "negura", type: "experiment", id: "EXP-0001", version: "1" },
         contextQuery: {
-          schema: "bouro.context-query/v1",
-          roots: [{ system: "bouro", type: "experiment", id: "EXP-0001", version: "1" }],
+          schema: "negura.context-query/v1",
+          roots: [{ system: "negura", type: "experiment", id: "EXP-0001", version: "1" }],
           purpose: "run the Ouro cross-repository fixture",
           tokenBudget: 4_000,
           maxResources: 30,
           allowedSensitivities: ["public", "internal"],
         },
         procedure: {
-          definition: { system: "bouro", type: "procedure", id: "PROC-0001", version: "1" },
+          definition: { system: "negura", type: "procedure", id: "PROC-0001", version: "1" },
           artifact: {
             system: "github",
             type: "file",
@@ -62,7 +62,7 @@ test(
           },
           runtime: "node",
           args: [],
-          inputs: { message: "real Bouro integration" },
+          inputs: { message: "real Negura integration" },
           permissionTier: "inspect",
           timeoutMs: 10_000,
           retries: 0,
@@ -79,21 +79,21 @@ test(
         },
       };
       const repository = new JsonStoreRepository(join(directory, "ouro-store.json"));
-      const gateway = new BouroCliGateway({ bin: bouroBin, vault: bouroVault });
-      const engine = new OuroEngine({ repository, bouro: gateway });
+      const gateway = new NeguraCliGateway({ bin: neguraBin, vault: neguraVault });
+      const engine = new OuroEngine({ repository, negura: gateway });
       const run = await engine.run(request);
       assert.equal(run.status, "succeeded");
 
       const store = await repository.load();
       assert.equal(validateStore(store).ok, true);
-      const outbox = Object.values(store.bouroOutbox)[0]!;
+      const outbox = Object.values(store.neguraOutbox)[0]!;
       assert.equal(outbox.status, "delivered");
       assert.equal(outbox.result?.id, "EVD-0002");
       const firstExport = exportFukuroNdjson(store, { runId: run.id });
       const secondExport = exportFukuroNdjson(store, { runId: run.id });
       assert.equal(firstExport, secondExport);
 
-      const show = invokeBouro(bouroBin, ["show", "--id", "EVD-0002", "--vault", bouroVault]);
+      const show = invokeNegura(neguraBin, ["show", "--id", "EVD-0002", "--vault", neguraVault]);
       assert.equal(show.status, 0, show.stderr);
       const evidence = JSON.parse(show.stdout) as {
         revision: { provenance: { generatedBy?: { id?: string }; derivedFrom: Array<{ id?: string }> } };
@@ -103,13 +103,13 @@ test(
 
       const commandPath = join(directory, "evidence-command.json");
       await writeFile(commandPath, `${JSON.stringify(outbox.command, null, 2)}\n`, "utf8");
-      const replay = invokeBouro(bouroBin, [
+      const replay = invokeNegura(neguraBin, [
         "evidence",
         "register",
         "--input",
         commandPath,
         "--vault",
-        bouroVault,
+        neguraVault,
       ]);
       assert.equal(replay.status, 0, replay.stderr);
       const replayed = JSON.parse(replay.stdout) as { result: { replayed: boolean; evidence: { id: string } } };
@@ -121,7 +121,7 @@ test(
   },
 );
 
-function invokeBouro(bin: string, args: string[]): SpawnSyncReturns<string> {
+function invokeNegura(bin: string, args: string[]): SpawnSyncReturns<string> {
   return spawnSync(process.execPath, [bin, ...args], { encoding: "utf8" });
 }
 
@@ -129,13 +129,13 @@ function assertContractSnapshots(root: string): void {
   const ouroContracts = fileURLToPath(new URL("../../contracts/", import.meta.url));
   const pairs = [
     ["resource-ref.v1.schema.json", "resource-ref.v1.schema.json"],
-    ["bouro-context-query.v1.schema.json", "context-query.v1.schema.json"],
-    ["bouro-register-evidence.v1.schema.json", "register-evidence.v1.schema.json"],
+    ["negura-context-query.v1.schema.json", "context-query.v1.schema.json"],
+    ["negura-register-evidence.v1.schema.json", "register-evidence.v1.schema.json"],
   ] as const;
-  for (const [ouroName, bouroName] of pairs) {
+  for (const [ouroName, neguraName] of pairs) {
     const ouro = normalizedContract(readJson(join(ouroContracts, ouroName)));
-    const bouro = normalizedContract(readJson(join(root, "contracts", bouroName)));
-    assert.deepEqual(ouro, bouro, `${ouroName} drifted from Bouro receiver contract`);
+    const negura = normalizedContract(readJson(join(root, "contracts", neguraName)));
+    assert.deepEqual(ouro, negura, `${ouroName} drifted from Negura receiver contract`);
   }
 }
 

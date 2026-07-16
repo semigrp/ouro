@@ -22,7 +22,7 @@ be writing while it runs.
 
 1. **Root the work**: a real tracker item (`owner/repo#n`) is the Work source. No tracker item —
    create one; a Run without a Work root is unattributable.
-2. **Root the knowledge** (once per question): Experiment + ProcedureDefinition in Bouro, so the
+2. **Root the knowledge** (once per question): Experiment + ProcedureDefinition in Negura, so the
    ContextBundle and Evidence have somewhere to live. See `examples/quality-gate/README.md` for
    the minimal chain.
 3. **Vendor the procedure** into the target repository (`procedures/…`) and commit it. Repository
@@ -33,7 +33,7 @@ be writing while it runs.
    the Run reported it.
 6. **Fan out the results**:
    - telemetry: `ouro events export --target fukuro --run RUN-n | fukuro import`
-   - evidence: delivered on success; `ouro bouro flush` replays if it was pending.
+   - evidence: delivered on success; `ouro negura flush` replays if it was pending.
 7. **On failure**: the Run and its bounded stdout/stderr artifacts are the diagnosis input. Fix
    the workspace or the procedure (new commit, new digest), then run again — never edit a Run.
 
