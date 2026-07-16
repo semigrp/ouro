@@ -50,12 +50,18 @@ See [ADR 0001](docs/adr/0001-ouro-boundary-and-execution.md).
 - `doctor` verifies store structure, event-chain integrity, ContextBundle digest, reference
   consistency, and local Run artifact bytes.
 
+## Agents
+
+AI agents (and new machines) can reach the operational level from this repository alone: see
+[AGENTS.md](AGENTS.md) for setup and conventions, and [skills/outbound.md](skills/outbound.md) for
+the portable "when does work belong in a Run" regime.
+
 ## Quick start
 
 Requirements: Node.js 20 or newer and pnpm.
 
 ```bash
-git clone git@github.com:semigrp/ouro.git
+git clone https://github.com/semigrp/ouro
 cd ouro
 pnpm install
 pnpm test
