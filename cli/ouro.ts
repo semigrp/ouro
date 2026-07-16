@@ -128,7 +128,7 @@ function cmdPregate(): void {
       permissionDecision: 'deny',
       permissionDecisionReason:
         `pre-push gate: HEAD ${ctx.sha.slice(0, 8)} has not passed the quality gates ` +
-        `(marker=${passed.slice(0, 8) || 'none'}). Run \`ouro gate ${ctx.root}\` in its own ` +
+        `(marker=${passed.slice(0, 8) || 'none'}). Run \`node ${process.argv[1]} gate ${ctx.root}\` in its own ` +
         `command, confirm all gates are green, then push. Never chain gate and push in one ` +
         `command. If you must push without gates, ask the human.`,
     },
