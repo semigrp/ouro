@@ -111,10 +111,16 @@ Retry pending Bouro Evidence commands:
 node dist/bin/ouro.js bouro flush
 ```
 
-Fukuro 0.6.0 does not yet publish `fukuro.telemetry-event/v1` ingest. Ouro vendors the confirmed
-receiver-contract snapshot and produces validated NDJSON without blocking Runs. Once Fukuro owns
-the schema, the snapshot must track the receiver contract and the exported stream can be piped to
-its ingest command.
+Fukuro owns the `fukuro.telemetry-event/v1` receiver contract
+(`contracts/telemetry-event.v1.schema.json` in the Fukuro repository) and ships the matching
+ingest command. Ouro vendors a snapshot of that contract and produces validated NDJSON without
+blocking Runs; the exported stream pipes straight into it:
+
+```bash
+node dist/bin/ouro.js events export --target fukuro | npx fukuro import
+```
+
+Import is idempotent on `sourceEventId` — re-exporting and re-piping the same range is safe.
 
 ## CLI
 
