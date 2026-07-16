@@ -7,7 +7,7 @@ external Work item into a pinned, inspectable execution path:
 Work -> Plan -> Task -> ContextBundle -> ProcedureBinding -> Run -> Attempt -> Gate -> Result
 ```
 
-Ouro owns execution state. [Boros](https://github.com/semigrp/boros) owns knowledge meaning,
+Ouro owns execution state. [Boros](https://github.com/semigrp/bouro) owns knowledge meaning,
 Evidence, and Decisions. [Fukuro](https://github.com/semigrp/fukuro) owns telemetry analysis,
 baselines, and Findings. Repositories own executable artifact bytes, while issue trackers own issue
 and pull-request state.
